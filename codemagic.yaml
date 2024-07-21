@@ -1,0 +1,52 @@
+# Configuration for Codemagic CI/CD
+# Tailored for both iOS simulator and Android builds
+# No signing or publishing included
+
+workflows:
+  cross-platform-workflow:
+    name: iOS and Android Workflow
+    environment:
+      xcode: latest
+      cocoapods: default
+      flutter: stable
+    vars:
+      XCODE_WORKSPACE: "ios/Runner.xcworkspace"
+      XCODE_SCHEME: "Runner"
+    scripts:
+      - name: Set iOS Simulator destination
+        script: |
+          DESTINATION="platform=iOS Simulator,name=iPhone 12,OS=latest"
+          echo $DESTINATION > /tmp/simulator_destination.txt
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios && pod install --repo-update
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      - name: Flutter unit tests
+        script: |
+          flutter test
+      - name: Build iOS for Simulator
+        script: |
+          flutter build ios --debug --simulator --no-codesign
+      - name: Xcode build for simulator
+        script: |
+          DESTINATION=$(cat /tmp/simulator_destination.txt)
+          xcodebuild -workspace "$XCODE_WORKSPACE" \
+                     -scheme "$XCODE_SCHEME" \
+                     -destination "$DESTINATION" \
+                     -configuration Debug \
+                     build \
+                     ONLY_ACTIVE_ARCH=YES \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO
+      - name: Build Android APK
+        script: |
+          flutter build apk --debug
+    artifacts:
+      - build/ios/iphonesimulator/Runner.app
+      - build/app/outputs/flutter-apk/app-debug.apk
